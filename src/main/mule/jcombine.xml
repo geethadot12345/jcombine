@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ef54a5f5-d1af-4b80-9ac5-4b5f644ff5bc" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="jcombineFlow" doc:id="6f6481b0-c0c1-47a1-8ad1-d0c5edafb231" >
+		<http:listener doc:name="Listener" doc:id="f5772dca-5d59-445f-87ed-005ebc7ff8b8" config-ref="HTTP_Listener_config" path="jcombine"/>
+		<ee:transform doc:name="Transform Message" doc:id="fe033500-ba8c-4705-adcc-aed5c69c29e0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var in1=[
+    {
+        "bookId": 10,
+        "name": "telugu"
+    },
+    {
+        "bookId": 11,
+        "name": "hindhi"
+    }
+]
+var in2=[
+	{
+		"bookId":10,
+		"Author":"xyz"
+	},
+	{
+		"bookId":10,
+		"Author":"kk"
+	},
+	{
+		"bookId":11,
+		"Author":"xy"
+	}
+]
+--- 
+in1  map (bookListing) -> using (id = bookListing.bookId) {
+	bookId:	id,
+    name:  bookListing.name,
+	(in2 filter ($.*bookId contains id)  map (bookAuthor) -> {
+		author:bookAuthor.Author
+   })
+}	
+
+    	
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="jcombineFlow2" doc:id="8e9a4cd0-5326-4423-9b74-76b743bdea5c" >
+		<http:listener doc:name="Listener" doc:id="e5979924-4b55-4ea6-a127-9c9a22aa6eff" config-ref="HTTP_Listener_config" path="/one"/>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="82b08e65-3aab-4f58-b176-a02aff1cf51e" variableName="pld"/>
+		<set-variable value="#[attributes.queryParams['select']]" doc:name="Set Variable" doc:id="c5a81d40-00bf-4031-98e8-780be1234c0b" variableName="array" />
+		<logger level="INFO" doc:name="Logger" doc:id="52bce8e8-2bc3-4087-a5a0-5f95cc8f71a2" message="#[vars.array]" />
+		<ee:transform doc:name="Transform Message" doc:id="2b4dc182-99d5-4155-b5d0-a902298e299c">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+arr:vars.array as String splitBy(",")
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="bb5bdba4-ccac-4f11-8561-b198d3c61c1e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var in2=vars.pld
+ var arr = payload.arr
+---
+in2 map (item) -> {
+	 (item filterObject ((value, key) -> (arr contains key as String default "") ))
+} ]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="e9883d8b-05a5-4765-b69b-7b6d13d84ffa" message="#[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="77b8ae95-f727-437b-b7da-79b50e528ad0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload orderBy($.'bookId')]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
